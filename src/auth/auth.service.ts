@@ -14,14 +14,11 @@ import DeviceDetector from 'device-detector-js';
 
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
-
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 
-totp.options = {
-  step: 300, 
-};
+totp.options = { step: 300 };
 
 @Injectable()
 export class AuthService {
@@ -31,6 +28,7 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
+  // -------------------- OTP --------------------
   async sendOtp(sendOtpDto: SendOtpDto) {
     try {
       const otp = totp.generate(sendOtpDto.email + 'secret-key');
@@ -42,9 +40,7 @@ export class AuthService {
       );
       return { message: 'Verification code sent successfully' };
     } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Internal server error',
-      );
+      throw new InternalServerErrorException(error.message || 'Internal server error');
     }
   }
 
@@ -54,30 +50,22 @@ export class AuthService {
         token: verifyOtpDto.otp,
         secret: verifyOtpDto.email + 'secret-key',
       });
-  
-      if (!isValid) {
-        return { valid: false };
-      }
-  
-      // OTP to‘g‘ri bo‘lsa, userni isActive true qilamiz
+      if (!isValid) return { valid: false };
+
       await this.prisma.user.update({
         where: { email: verifyOtpDto.email },
         data: { isActive: true },
       });
-  
       return { valid: true };
     } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Internal server error',
-      );
+      throw new InternalServerErrorException(error.message || 'Internal server error');
     }
   }
-  
+
+  // -------------------- REGISTER --------------------
   async register(data: CreateUserDto) {
     try {
-      const existing = await this.prisma.user.findFirst({
-        where: { email: data.email },
-      });
+      const existing = await this.prisma.user.findFirst({ where: { email: data.email } });
       if (existing) throw new BadRequestException('User already exists');
 
       const hashedPassword = bcrypt.hashSync(data.password, 10);
@@ -87,60 +75,57 @@ export class AuthService {
       });
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
-      throw new InternalServerErrorException(
-        error.message || 'Internal server error',
-      );
+      throw new InternalServerErrorException(error.message || 'Internal server error');
     }
   }
 
+  // -------------------- LOGIN --------------------
   async login(loginAuthDto: LoginAuthDto, req: Request) {
     try {
-      const user = await this.prisma.user.findFirst({
-        where: { email: loginAuthDto.email },
-      });
+      const user = await this.prisma.user.findFirst({ where: { email: loginAuthDto.email } });
       if (!user) throw new BadRequestException('User not found');
-  
+
       const matchPassword = bcrypt.compareSync(loginAuthDto.password, user.password);
       if (!matchPassword) throw new BadRequestException('Invalid credentials');
-  
-      // Tokenlarni yaratish .env bilan
+
+      // Access va refresh token yaratish
       const accessToken = this.jwt.sign(
         { id: user.id, role: user.role },
-        { expiresIn: process.env.ACCESS_TOKEN_TIME || '30m' }
+        { expiresIn: process.env.ACCESS_TOKEN_TIME || '30m' },
       );
-  
       const refreshToken = this.jwt.sign(
         { id: user.id, role: user.role },
-        { expiresIn: process.env.REFRESH_TOKEN_TIME || '15d' }
+        { expiresIn: process.env.REFRESH_TOKEN_TIME || '15d' },
       );
-  
+
+      // Refresh tokenni hash qilib userga yozish
+      const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { hashedRefreshToken },
+      });
+
       // Device va IP olish
       const deviceDetector = new DeviceDetector();
       const device = deviceDetector.parse(req.headers['user-agent'] || '');
       const deviceName = `${device.client?.name || 'Unknown Client'} on ${device.os?.name || 'Unknown OS'}`;
       const userIp = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
-  
+
       await this.prisma.session.create({
         data: {
           userId: user.id,
           userIp,
           device: deviceName,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 soat
         },
       });
-      
-  
-      // Response Frontend uchun
+
       return {
         status: 'success',
         data: {
           access_token: accessToken,
           refresh_token: refreshToken,
-          user: {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-          },
+          user: { id: user.id, email: user.email, role: user.role },
         },
       };
     } catch (error) {
@@ -148,35 +133,46 @@ export class AuthService {
       throw new InternalServerErrorException(error.message || 'Internal server error');
     }
   }
-  
-  
 
+  // -------------------- REFRESH TOKEN --------------------
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
     try {
       const { refreshToken } = refreshTokenDto;
       if (!refreshToken) throw new BadRequestException('RefreshToken not found');
 
-      const verifyToken = this.jwt.verify(refreshToken);
-      const user = await this.prisma.user.findFirst({
-        where: { id: verifyToken.id },
-      });
-      if (!user) throw new UnauthorizedException('User not found');
+      const decoded = this.jwt.verify(refreshToken) as { id: number; role: string };
+      const user = await this.prisma.user.findUnique({ where: { id: decoded.id } });
+      if (!user || !user.hashedRefreshToken) throw new UnauthorizedException();
+
+      const isValid = await bcrypt.compare(refreshToken, user.hashedRefreshToken);
+      if (!isValid) throw new UnauthorizedException('Invalid refresh token');
 
       const newAccessToken = this.jwt.sign(
         { id: user.id, role: user.role },
-        { expiresIn: '15m' },
+        { expiresIn: process.env.ACCESS_TOKEN_TIME || '30m' },
       );
 
       return { accessToken: newAccessToken };
     } catch (error) {
-      if (error instanceof UnauthorizedException) throw error;
-      if (error instanceof BadRequestException) throw error;
-      throw new InternalServerErrorException(
-        error.message || 'Internal server error',
-      );
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
+      throw new InternalServerErrorException(error.message || 'Internal server error');
     }
   }
 
+  // -------------------- LOGOUT --------------------
+  async logout(userId: number) {
+    try {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { hashedRefreshToken: null }, // logout qilganda refresh tokenni o‘chiradi
+      });
+      return { status: 'success', message: 'Logged out successfully' };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message || 'Internal server error');
+    }
+  }
+
+  // -------------------- GET PROFILE --------------------
   async getProfile(userId: number) {
     try {
       const user = await this.prisma.user.findUnique({
@@ -195,10 +191,7 @@ export class AuthService {
       if (!user) throw new BadRequestException('User not found');
       return { status: 'success', data: user };
     } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Internal server error',
-      );
+      throw new InternalServerErrorException(error.message || 'Internal server error');
     }
   }
-  
 }

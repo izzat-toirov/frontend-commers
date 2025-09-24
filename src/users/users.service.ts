@@ -124,16 +124,16 @@ export class UsersService {
     }
   }
 
+
   async remove(id: number) {
-    try {
-      return await this.prisma.user.delete({
-        where: { id },
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException(`ID ${id} ga teng user topilmadi`);
-      }
-      throw new InternalServerErrorException('Userni o‘chirishda xatolik yuz berdi: ' + error.message);
-    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException(`ID ${id} ga teng user topilmadi`);
+  
+    return await this.prisma.user.update({
+      where: { id },
+      data: { isDeleted: true },
+    });
   }
+  
+  
 }
