@@ -14,31 +14,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 /// USER
 model User {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   fname     String
   lname     String?
   address   String?
-  email     String    @unique
+  email     String   @unique
   password  String
-  role      Role      @default(USER)
-  isActive  Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  role      Role     @default(USER)
+  isActive  Boolean  @default(false)
+  hashedRefreshToken String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  products  Product[]
+  products   Product[]
   categories Category[]
 
   Session Session[]
+
+  Cart Cart[]
 }
 
 model Session {
   id        String   @id @default(uuid())
-  userId    Int      // <-- Int bo‘ldi
+  userId    Int // <-- Int bo‘ldi
   user      User     @relation(fields: [userId], references: [id])
   device    String
   userIp    String
@@ -46,43 +47,66 @@ model Session {
   createdAt DateTime @default(now())
 }
 
-
 enum Role {
   OWNER
   ADMIN
   USER
 }
 
-/// PRODUCT
 model Product {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   title       String
   description String
   price       Float
   stock       Int
   brand       String?
-  images      String[]  // Prisma PostgreSQL da array uchun
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Relations
-  categoryId  Int
-  category    Category  @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id])
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  images ProductImage[] // relation
+  Cart   Cart[]
 }
 
 /// CATEGORY
 model Category {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  userId    Int
-  user      User      @relation(fields: [userId], references: [id])
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
 
-  products  Product[]
+  products Product[]
+}
+
+model Cart {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId]) // bir foydalanuvchi bir mahsulotni faqat bir marta qo‘shishi uchun
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  altText   String?
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
 }
