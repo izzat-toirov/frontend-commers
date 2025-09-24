@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+/// USER
+model User {
+  id        Int       @id @default(autoincrement())
+  fname     String
+  lname     String?
+  address   String?
+  email     String    @unique
+  password  String
+  role      Role      @default(USER)
+  isActive  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  products  Product[]
+  categories Category[]
+
+  Session Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    Int      // <-- Int bo‘ldi
+  user      User     @relation(fields: [userId], references: [id])
+  device    String
+  userIp    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+
+enum Role {
+  OWNER
+  ADMIN
+  USER
+}
+
+/// PRODUCT
+model Product {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String
+  price       Float
+  stock       Int
+  brand       String?
+  images      String[]  // Prisma PostgreSQL da array uchun
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  categoryId  Int
+  category    Category  @relation(fields: [categoryId], references: [id])
+
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+/// CATEGORY
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+
+  products  Product[]
+}
