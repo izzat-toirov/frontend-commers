@@ -1,7 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsBoolean } from 'class-validator';
-import { Role } from '../../../generated/prisma';
-
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+  IsBoolean,
+} from 'class-validator';
+import { Role } from '../../../generated/prisma'; // Prisma-dan Role enum keladi
 
 export class CreateUserDto {
   @ApiProperty({ example: 'Ali', description: 'Foydalanuvchi ismi' })
@@ -32,8 +39,9 @@ export class CreateUserDto {
   @IsEnum(Role)
   role: Role;
 
-//   @ApiPropertyOptional({ example: true, description: 'Foydalanuvchi aktivmi yoki yo‘q (default: true)' })
-//   @IsBoolean()
-//   @IsOptional()
-//   isActive?: boolean = false;
+  // Agar kerak bo‘lsa:
+  // @ApiPropertyOptional({ example: true, description: 'Foydalanuvchi aktivmi yoki yo‘q (default: false)' })
+  // @IsBoolean()
+  // @IsOptional()
+  // isActive?: boolean = false;
 }

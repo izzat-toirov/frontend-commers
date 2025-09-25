@@ -80,59 +80,52 @@ export class AuthService {
   }
 
   // -------------------- LOGIN --------------------
-  async login(loginAuthDto: LoginAuthDto, req: Request) {
-    try {
-      const user = await this.prisma.user.findFirst({ where: { email: loginAuthDto.email } });
-      if (!user) throw new BadRequestException('User not found');
+  // login()
+async login(loginAuthDto: LoginAuthDto, req: Request, res: any) {
+  try {
+    const user = await this.prisma.user.findFirst({ where: { email: loginAuthDto.email } });
+    if (!user) throw new BadRequestException('User not found');
 
-      const matchPassword = bcrypt.compareSync(loginAuthDto.password, user.password);
-      if (!matchPassword) throw new BadRequestException('Invalid credentials');
+    const matchPassword = bcrypt.compareSync(loginAuthDto.password, user.password);
+    if (!matchPassword) throw new BadRequestException('Invalid credentials');
 
-      // Access va refresh token yaratish
-      const accessToken = this.jwt.sign(
-        { id: user.id, role: user.role },
-        { expiresIn: process.env.ACCESS_TOKEN_TIME || '30m' },
-      );
-      const refreshToken = this.jwt.sign(
-        { id: user.id, role: user.role },
-        { expiresIn: process.env.REFRESH_TOKEN_TIME || '15d' },
-      );
+    const accessToken = this.jwt.sign(
+      { id: user.id, role: user.role },
+      { expiresIn: process.env.ACCESS_TOKEN_TIME || '30m' },
+    );
 
-      // Refresh tokenni hash qilib userga yozish
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { hashedRefreshToken },
-      });
+    const refreshToken = this.jwt.sign(
+      { id: user.id, role: user.role },
+      { expiresIn: process.env.REFRESH_TOKEN_TIME || '15d' },
+    );
 
-      // Device va IP olish
-      const deviceDetector = new DeviceDetector();
-      const device = deviceDetector.parse(req.headers['user-agent'] || '');
-      const deviceName = `${device.client?.name || 'Unknown Client'} on ${device.os?.name || 'Unknown OS'}`;
-      const userIp = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { hashedRefreshToken },
+    });
 
-      await this.prisma.session.create({
-        data: {
-          userId: user.id,
-          userIp,
-          device: deviceName,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 soat
-        },
-      });
+    // 🍪 refresh tokenni cookie ga yozamiz
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // prod bo‘lsa faqat https
+      sameSite: 'strict',
+      maxAge: 15 * 24 * 60 * 60 * 1000, // 15 kun
+    });
 
-      return {
-        status: 'success',
-        data: {
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          user: { id: user.id, email: user.email, role: user.role },
-        },
-      };
-    } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      throw new InternalServerErrorException(error.message || 'Internal server error');
-    }
+    return {
+      status: 'success',
+      data: {
+        access_token: accessToken,
+        user: { id: user.id, email: user.email, role: user.role },
+      },
+    };
+  } catch (error) {
+    if (error instanceof BadRequestException) throw error;
+    throw new InternalServerErrorException(error.message || 'Internal server error');
   }
+}
+
 
   // -------------------- REFRESH TOKEN --------------------
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
