@@ -7,7 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }), // .env ni global qilish
+    ConfigModule.forRoot({ isGlobal: true }), 
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -19,5 +19,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   controllers: [AuthController],
   providers: [AuthService, MailService],
+  exports: [AuthService, JwtModule],  // ✅ mana shu qo‘shiladi
 })
 export class AuthModule {}

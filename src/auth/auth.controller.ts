@@ -16,7 +16,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtGuard } from '../common/guards/jwt.guard';
 import { GetUser } from '../common/guards/getUser';
 
@@ -28,12 +28,14 @@ export class AuthController {
   // -------------------- OTP --------------------
   @Post('send-otp')
   @ApiOperation({ summary: 'Send OTP to email' })
+  @ApiBody({ type: SendOtpDto })
   sendOtp(@Body() sendOtpDto: SendOtpDto) {
     return this.authService.sendOtp(sendOtpDto);
   }
 
   @Post('verify-otp')
   @ApiOperation({ summary: 'Verify OTP code' })
+  @ApiBody({ type: VerifyOtpDto })
   verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.authService.verifyOtp(verifyOtpDto);
   }
@@ -41,16 +43,19 @@ export class AuthController {
   // -------------------- REGISTER --------------------
   @Post('register')
   @ApiOperation({ summary: 'Register new user' })
+  @ApiBody({ type: CreateUserDto })
   register(@Body() createUserDto: CreateUserDto) {
     return this.authService.register(createUserDto);
   }
 
   // -------------------- LOGIN --------------------
   @Post('login')
+  @ApiOperation({ summary: 'Login user' })
+  @ApiBody({ type: LoginAuthDto })
   login(
     @Body() loginDto: LoginAuthDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response, // cookie yozish uchun
+    @Res({ passthrough: true }) res: Response, // ✅ Response ishlatilmoqda
   ) {
     return this.authService.login(loginDto, req, res);
   }
@@ -58,6 +63,7 @@ export class AuthController {
   // -------------------- REFRESH TOKEN --------------------
   @Post('refresh-token')
   @ApiOperation({ summary: 'Get new access token using refresh token' })
+  @ApiBody({ type: RefreshTokenDto })
   refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto);
   }
@@ -78,5 +84,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Get logged in user profile' })
   getProfile(@GetUser('id') userId: number) {
     return this.authService.getProfile(userId);
+  }
+
+  // -------------------- MAKE ADMIN --------------------
+  @Post('make-admin/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtGuard)
+  @ApiOperation({ summary: 'Promote user to admin (Owner only)' })
+  makeAdmin(@GetUser('id') ownerId: number, @Param('id') userId: number) {
+    return this.authService.makeAdmin(ownerId, +userId);
   }
 }

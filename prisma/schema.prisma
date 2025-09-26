@@ -10,18 +10,18 @@ datasource db {
 
 /// USER
 model User {
-  id        Int      @id @default(autoincrement())
-  fname     String
-  lname     String?
-  address   String?
-  email     String   @unique
-  password  String
-  role      Role     @default(USER)
-  isActive  Boolean  @default(false)
+  id                 Int      @id @default(autoincrement())
+  fname              String
+  lname              String?
+  address            String?
+  email              String   @unique
+  password           String
+  role               Role     @default(USER)
+  isActive           Boolean  @default(false)
   hashedRefreshToken String?
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isDeleted          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
   products   Product[]
@@ -55,7 +55,7 @@ model Product {
   price       Float
   stock       Int
   brand       String?
-  images      String[]   // <-- ProductImage o‘rniga array
+  images      String[] // <-- ProductImage o‘rniga array
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -65,7 +65,8 @@ model Product {
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  Cart Cart[]
+  Cart     Cart[]
+  CartItem CartItem[]
 }
 
 /// CATEGORY
@@ -82,11 +83,21 @@ model Category {
   products Product[]
 }
 
-/// CART
 model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @unique
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  Product   Product?   @relation(fields: [productId], references: [id])
+  productId Int?
+}
+
+model CartItem {
   id     Int  @id @default(autoincrement())
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
+  cartId Int
+  cart   Cart @relation(fields: [cartId], references: [id])
 
   productId Int
   product   Product @relation(fields: [productId], references: [id])
@@ -95,5 +106,5 @@ model Cart {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, productId]) // bitta user bir mahsulotni faqat 1 marta qo‘shadi
+  @@unique([cartId, productId]) // bitta savatda bir mahsulot bir marta bo‘ladi
 }

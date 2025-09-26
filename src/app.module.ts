@@ -4,6 +4,9 @@ import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
+import { CategoryModule } from './category/category.module';
+import { ProductModule } from './product/product.module';
+import { CartModule } from './cart/cart.module';
 
 
 @Module({
@@ -15,7 +18,10 @@ import { MailModule } from './mail/mail.module';
   UsersModule,
   PrismaModule,
   AuthModule,
-  MailModule
+  MailModule,
+  CategoryModule,
+  ProductModule,
+  CartModule
 ],
   controllers: [],
   providers: [],

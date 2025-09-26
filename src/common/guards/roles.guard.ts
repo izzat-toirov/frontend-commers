@@ -1,4 +1,3 @@
-// roles.guard.ts
 import {
   CanActivate,
   ExecutionContext,
@@ -6,26 +5,22 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../decorators/roles.decorator';
+import { Role } from '../../../generated/prisma';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
-      ROLES_KEY,
-      [context.getHandler(), context.getClass()]
-    );
+    const requiredRoles = this.reflector.get<Role[]>('roles', context.getHandler());
+    if (!requiredRoles || requiredRoles.length === 0) return true;
 
-    if (!requiredRoles || requiredRoles.length === 0) {
-      return true; // agar route'da role belgilanmagan bo‘lsa, ruxsat beriladi
-    }
+    const req = context.switchToHttp().getRequest();
+    const user = req.user;
+    if (!user) throw new ForbiddenException('User ma’lumotlari topilmadi');
 
-    const { user } = context.switchToHttp().getRequest();
-
-    if (!user || !requiredRoles.includes(user.role)) {
-      throw new ForbiddenException('Sizda bu amalni bajarishga ruxsat yo‘q');
+    if (!requiredRoles.includes(user.role)) {
+      throw new ForbiddenException('Sizda ushbu amaliyotni bajarish huquqi yo‘q');
     }
 
     return true;
