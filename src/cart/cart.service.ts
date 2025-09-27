@@ -56,8 +56,20 @@ export class CartService {
           },
         },
       });
-
-      return { message: 'Savat olindi', data: cart };
+  
+      if (!cart) {
+        return { message: 'Savat bo‘sh', data: null };
+      }
+  
+      // hisoblash
+      const itemsWithTotal = cart.items.map((item) => ({
+        ...item,
+        totalPrice: item.product.price * item.quantity,
+      }));
+  
+      const cartTotal = itemsWithTotal.reduce((sum, item) => sum + item.totalPrice, 0);
+  
+      return { message: 'Savat olindi', data: { ...cart, items: itemsWithTotal, cartTotal } };
     } catch (error) {
       throw new HttpException(
         { message: error.message || 'Savatni olishda xatolik', error: error.meta || error.code || null },
@@ -65,6 +77,7 @@ export class CartService {
       );
     }
   }
+  
 
   // Update product quantity
   async updateQuantity(userId: number, productId: number, quantity: number) {

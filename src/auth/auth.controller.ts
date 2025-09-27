@@ -73,9 +73,13 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtGuard)
   @ApiOperation({ summary: 'Logout user (remove refresh token)' })
-  logout(@GetUser('id') userId: number) {
-    return this.authService.logout(userId);
+  async logout(
+    @GetUser('id') userId: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.logout(userId, res);
   }
+  
 
   // -------------------- PROFILE --------------------
   @Get('profile')

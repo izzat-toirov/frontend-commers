@@ -37,7 +37,7 @@ export class UsersService {
           where: { email },
         });
         if (!existing) {
-          const hashedPassword = await bcrypt.hash('User123!', 10);
+          const hashedPassword = await bcrypt.hash('user', 10);
 
           await this.prisma.user.create({
             data: {
@@ -72,13 +72,13 @@ export class UsersService {
         return existingSuperAdmins[0];
       }
 
-      const hashedPassword = await bcrypt.hash('MySecureP@ss1', 10);
+      const hashedPassword = await bcrypt.hash('owner', 10);
 
       const superAdmin = await this.prisma.user.create({
         data: {
           fname: 'Super',
           lname: 'Admin',
-          email: 'superAdmin@gmail.com',
+          email: 'owner@gmail.com',
           password: hashedPassword,
           role: Role.OWNER,
           isActive: true,

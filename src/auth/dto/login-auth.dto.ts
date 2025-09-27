@@ -6,7 +6,7 @@ export class LoginAuthDto {
     @IsEmail()
     email: string
 
-    @ApiProperty({ example: 'MySecureP@ss1' })
+    @ApiProperty({ example: 'owner' })
     @IsString()
     password: string
 }

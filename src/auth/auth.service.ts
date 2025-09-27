@@ -18,6 +18,7 @@ import { LoginAuthDto } from './dto/login-auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { Role } from '../../generated/prisma';
+import { Response } from 'express';
 
 totp.options = { step: 300 };
 
@@ -203,12 +204,23 @@ export class AuthService {
   }
 
   // -------------------- LOGOUT --------------------
-  async logout(userId: number) {
+
+  async logout(userId: number, res: Response) {
     try {
+      // 1️⃣ Refresh tokenni bazada tozalash
       await this.prisma.user.update({
         where: { id: userId },
         data: { hashedRefreshToken: null },
       });
+
+      // 2️⃣ Cookie’ni tozalash
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: true, // https bo‘lsa
+        sameSite: 'strict',
+        path: '/',
+      });
+
       return { message: 'Logged out successfully' };
     } catch (error) {
       throw new InternalServerErrorException(
